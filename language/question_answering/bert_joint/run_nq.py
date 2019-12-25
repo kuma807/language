@@ -1231,27 +1231,28 @@ def compute_predictions(example):
 
 def compute_pred_dict(candidates_dict, dev_features, raw_results):
   """Computes official answer key from raw logits."""
-  raw_results_by_id = [(int(res["unique_id"] + 1), res) for res in raw_results]
+  raw_results_by_id = [(int(res["unique_id"] + 1), dict(res)) for res in raw_results]
 
   # Cast example id to int32 for each example, similarly to the raw results.
   sess = tf.Session()
   all_candidates = candidates_dict.items()
   example_ids = tf.to_int32(np.array([int(k) for k, _ in all_candidates
-                                     ])).eval(session=sess)
-  examples_by_id = zip(example_ids, all_candidates)
+                                      ])).eval(session=sess)
+  examples_by_id = list(zip(example_ids, all_candidates))
 
   # Cast unique_id also to int32 for features.
   feature_ids = []
   features = []
   for f in dev_features:
-    feature_ids.append(f.features.feature["unique_ids"].int64_list.value[0] + 1)
-    features.append(f.features.feature)
+      feature_ids.append(f.features.feature["unique_ids"].int64_list.value[0] + 1)
+      features.append(dict(f.features.feature))
   feature_ids = tf.to_int32(np.array(feature_ids)).eval(session=sess)
-  features_by_id = zip(feature_ids, features)
+  features_by_id = list(zip(feature_ids, features))
 
   # Join examplew with features and raw results.
   examples = []
-  merged = sorted(examples_by_id + raw_results_by_id + features_by_id)
+  merged = sorted(examples_by_id + raw_results_by_id + features_by_id, key=lambda x: x[0])
+    
   for idx, datum in merged:
     if isinstance(datum, tuple):
       examples.append(EvalExample(datum[0], datum[1]))
